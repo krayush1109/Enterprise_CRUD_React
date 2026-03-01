@@ -11,52 +11,45 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Snackbar,
+  Alert,
 } from "@mui/material";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchEmployees, addEmployee } from "../api/employeeApi";
+import EmployeeForm from "../components/EmployeeForm";
+
+import { IconButton, DialogActions } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { deleteEmployee } from "../api/employeeApi";
+
+import EditIcon from "@mui/icons-material/Edit";
+import { updateEmployee } from "../api/employeeApi";
 
 export default function EmployeesPage() {
 
-  // 🔹 loading state (page change, sort change pe trigger hoga)
-  const [loading, setLoading] = useState(true);
-
-  // 🔹 static employee data (later JSON server se replace hoga)
-  const [rows] = useState([
-    { id: 1, fullName: "John Doe", email: "john@example.com", department: "IT", status: "Active" },
-    { id: 2, fullName: "Jane Smith", email: "jane@example.com", department: "HR", status: "Inactive" },
-    { id: 3, fullName: "Robert King", email: "robert@example.com", department: "IT", status: "Active" },
-    { id: 4, fullName: "Emily Clark", email: "emily@example.com", department: "Finance", status: "Active" },
-    { id: 5, fullName: "David Lee", email: "david@example.com", department: "HR", status: "Inactive" },
-    { id: 6, fullName: "Chris Brown", email: "chris@example.com", department: "IT", status: "Active" },
-  ]);
-
-  // 🔹 search + filters state
+  // 🔹 search state
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("");
 
-  // 🔹 controlled pagination model
+  // 🔹 pagination
   const [paginationModel, setPaginationModel] =
-    useState<GridPaginationModel>({
-      page: 0,
-      pageSize: 5,
-    });
+    useState<GridPaginationModel>({ page: 0, pageSize: 5 });
 
-  // 🔹 controlled sorting model
+  // 🔹 sorting
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
-  // 🔥 simulate API delay (page ya sort change hone pe loading dikhega)
-  useEffect(() => {
-    setLoading(true);
+  // 🔹 dialog open state
+  const [openDialog, setOpenDialog] = useState(false);
 
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 700);
+  // 🔹 snackbar state
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
-    return () => clearTimeout(timer);
-
-  }, [paginationModel, sortModel]); 
-  // 🔹 page change ya sorting change → loading trigger
+  const queryClient = useQueryClient(); // 🔥 React Query cache access
 
   // 🔹 debounce logic
   useEffect(() => {
@@ -67,85 +60,117 @@ export default function EmployeesPage() {
     return () => clearTimeout(timer);
   }, [searchText]);
 
-  // 🔹 highlight function
-  const highlightText = (text: string) => {
-    if (!debouncedSearch) return text;
+  const sortField = sortModel[0]?.field;
+  const sortOrder = sortModel[0]?.sort;
 
-    const regex = new RegExp(`(${debouncedSearch})`, "gi");
-    const parts = text.split(regex);
+  // 🔥 Fetch employees
+  const { data, isLoading } = useQuery({
+    queryKey: [
+      "employees",
+      paginationModel.page,
+      paginationModel.pageSize,
+      sortField,
+      sortOrder,
+      debouncedSearch,
+    ],
+    queryFn: () =>
+      fetchEmployees({
+        page: paginationModel.page,
+        pageSize: paginationModel.pageSize,
+        sortField,
+        sortOrder,
+        search: debouncedSearch,
+      }),
+    placeholderData: (prev) => prev,
+  });
 
-    return parts.map((part, index) =>
-      part.toLowerCase() === debouncedSearch.toLowerCase()
-        ? <mark key={index}>{part}</mark>
-        : part
-    );
-  };
+  const rows = data?.data ?? [];
+  const totalRows = data?.total ?? 0;
 
-  // 🔥 combined filtering logic
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
+  // 🔥 Mutation for adding employee
+  const mutation = useMutation({
+    mutationFn: addEmployee,
 
-      const matchesSearch =
-        !debouncedSearch ||
-        row.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        row.email.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        row.department.toLowerCase().includes(debouncedSearch.toLowerCase());
+    // 🔹 success hone par
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      // 🔥 employees query refetch hogi
 
-      const matchesStatus =
-        !statusFilter || row.status === statusFilter;
-
-      const matchesDepartment =
-        !departmentFilter || row.department === departmentFilter;
-
-      return matchesSearch && matchesStatus && matchesDepartment;
-    });
-  }, [rows, debouncedSearch, statusFilter, departmentFilter]);
-
-  // 🔥 apply sorting manually (server-side simulation)
-  const sortedRows = useMemo(() => {
-
-    // 🔹 agar sorting apply nahi hai → original filtered rows return
-    if (sortModel.length === 0) return filteredRows;
-
-    const { field, sort } = sortModel[0];
-
-    return [...filteredRows].sort((a: any, b: any) => {
-
-      if (a[field] < b[field]) return sort === "asc" ? -1 : 1;
-      if (a[field] > b[field]) return sort === "asc" ? 1 : -1;
-      return 0;
-
-    });
-
-  }, [filteredRows, sortModel]);
+      setOpenDialog(false);   // dialog close
+      setOpenSnackbar(true);  // success message show
+    },
+  });
 
   const columns: GridColDef[] = [
     { field: "id", headerName: "ID", width: 90 },
-
-    {
-      field: "fullName",
-      headerName: "Full Name",
-      flex: 1,
-      renderCell: (params) => <span>{highlightText(params.value)}</span>,
-    },
-
-    {
-      field: "email",
-      headerName: "Email",
-      flex: 1,
-      renderCell: (params) => <span>{highlightText(params.value)}</span>,
-    },
-
+    { field: "fullName", headerName: "Full Name", flex: 1 },
+    { field: "email", headerName: "Email", flex: 1 },
     { field: "department", headerName: "Department", width: 150 },
-
     { field: "status", headerName: "Status", width: 130 },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 150,
+      renderCell: (params) => (
+        <>
+          {/* 🔥 Edit Button */}
+          <IconButton
+            color="primary"
+            onClick={() => {
+              setEditEmployee(params.row); // 🔹 selected row data store
+              setOpenDialog(true);
+            }}
+          >
+            <EditIcon />
+          </IconButton>
+
+          {/* 🔥 Delete Button (already implemented) */}
+          <IconButton
+            color="error"
+            onClick={() => setDeleteId(params.row.id)}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </>
+      ),
+    }
+    
   ];
+
+  // 🔹 delete confirmation dialog
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // 🔥 Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: deleteEmployee,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setDeleteId(null);       // dialog close
+      setOpenSnackbar(true);   // success message
+    },
+  });
+
+  // 🔹 edit employee state
+  const [editEmployee, setEditEmployee] = useState<any>(null);
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: any) =>
+      updateEmployee(id, data),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setOpenDialog(false);
+      setEditEmployee(null);
+      setOpenSnackbar(true);
+    },
+  });
 
   return (
     <Box sx={{ height: 600, width: "100%" }}>
 
-      {/* 🔹 Filter Section */}
-      <Box sx={{ display: "flex", gap: 2, marginBottom: 2, flexWrap: "wrap" }}>
+      {/* 🔹 Top Section */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
 
         <TextField
           label="Search"
@@ -154,47 +179,105 @@ export default function EmployeesPage() {
           onChange={(e) => setSearchText(e.target.value)}
         />
 
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={statusFilter}
-            label="Status"
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="Active">Active</MenuItem>
-            <MenuItem value="Inactive">Inactive</MenuItem>
-          </Select>
-        </FormControl>
+        {/* 🔥 Add Employee Button */}
+        <Button
+          variant="contained"
+          onClick={() => setOpenDialog(true)}
+        >
+          Add Employee
+        </Button>
 
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Department</InputLabel>
-          <Select
-            value={departmentFilter}
-            label="Department"
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="IT">IT</MenuItem>
-            <MenuItem value="HR">HR</MenuItem>
-            <MenuItem value="Finance">Finance</MenuItem>
-          </Select>
-        </FormControl>
       </Box>
 
-      {/* 🔥 DataGrid with Controlled Sorting */}
+      {/* 🔥 DataGrid */}
       <DataGrid
-        rows={sortedRows}
+        rows={rows}
         columns={columns}
-        loading={loading}
-        checkboxSelection
+        loading={isLoading}
+        paginationMode="server"
+        sortingMode="server"
+        rowCount={totalRows}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
-        sortModel={sortModel}                // 🔹 controlled sort model
-        onSortModelChange={setSortModel}     // 🔹 sort change pe state update
+        sortModel={sortModel}
+        onSortModelChange={setSortModel}
         pageSizeOptions={[5, 10]}
+        checkboxSelection
         disableRowSelectionOnClick
       />
+
+      {/* 🔥 Dialog for Form */}
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        fullWidth
+      >
+        <DialogTitle>
+          {editEmployee ? "Edit Employee" : "Add Employee"}
+        </DialogTitle>
+
+        <DialogContent>
+
+          <EmployeeForm
+            defaultValues={editEmployee || undefined}
+            onSubmit={(formData) => {
+
+              if (editEmployee) {
+                // 🔥 Update flow
+                updateMutation.mutate({
+                  id: editEmployee.id,
+                  data: formData,
+                });
+              } else {
+                // 🔥 Create flow
+                mutation.mutate(formData);
+              }
+            }}
+          />
+
+        </DialogContent>
+      </Dialog>
+
+      {/* 🔥 Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete this employee?
+        </DialogContent>
+        <DialogActions>
+
+          <Button onClick={() => setDeleteId(null)}>
+            Cancel
+          </Button>
+
+          <Button
+            color="error"
+            onClick={() => {
+              if (deleteId) {
+                deleteMutation.mutate(deleteId); // 🔥 delete trigger
+              }
+            }}
+          >
+            Delete
+          </Button>
+
+        </DialogActions>
+      </Dialog>
+
+      {/* 🔥 Success Snackbar */}
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setOpenSnackbar(false)}
+      >
+        <Alert severity="success">
+          Employee added successfully!
+        </Alert>
+      </Snackbar>
+
     </Box>
   );
 }

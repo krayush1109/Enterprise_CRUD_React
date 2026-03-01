@@ -49,3 +49,7 @@ GET    /employees
 POST   /employees
 PUT    /employees/:id
 DELETE /employees/:id
+
+✅ STEP 17 — Install Form Libraries (If Not Installed)
+Run:
+npm install react-hook-form zod @hookform/resolvers

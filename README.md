@@ -378,4 +378,27 @@ JSON Server also supports:
 - Sorting
 - Filtering
 
+## 🔌 Step 13–15: API Layer & React Query Setup
+
+We introduced:
+
+- React Query for data fetching & caching
+- Axios for HTTP communication
+- Dedicated API layer
+
+Why API layer?
+
+- Separation of concerns
+- Cleaner components
+- Reusable API functions
+- Easier testing
+
+React Query manages:
+
+- Loading state
+- Error state
+- Caching
+- Background refetch
+
+
 
