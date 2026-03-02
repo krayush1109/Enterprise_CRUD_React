@@ -7,6 +7,7 @@ import {
   Box,
   MenuItem,
 } from "@mui/material";
+import { useEffect } from "react";
 
 // 🔹 Validation schema
 const schema = z.object({
@@ -31,12 +32,21 @@ export default function EmployeeForm({
   const {
     register,
     handleSubmit,
+    reset, // 🔥 Reset function
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues,
     // 🔥 agar edit mode hai toh fields pre-fill honge
   });
+
+  useEffect(() => {
+    if (defaultValues) {
+      // 🔥 jab editEmployee change ho
+      // form fields ko manually reset karo
+      reset(defaultValues);
+    }
+  }, [defaultValues, reset]);
 
   return (
     <Box

@@ -101,10 +101,42 @@ export default function EmployeesPage() {
     },
   });
 
+
+  // 🔥 Highlight function (safe approach)
+  const highlightText = (text: string) => {
+
+    // 🔹 agar search empty hai toh original text return
+    if (!debouncedSearch) return text;
+
+    // 🔹 case-insensitive regex create
+    const regex = new RegExp(`(${debouncedSearch})`, "gi");
+
+    // 🔹 matched parts ke basis pe split
+    const parts = text.split(regex);
+
+    return parts.map((part, index) =>
+      part.toLowerCase() === debouncedSearch.toLowerCase()
+        ? <mark key={index}>{part}</mark>  // 🔥 matched highlight
+        : part
+    );
+  };
+
+
   const columns: GridColDef[] = [
     { field: "id", headerName: "ID", width: 90 },
-    { field: "fullName", headerName: "Full Name", flex: 1 },
-    { field: "email", headerName: "Email", flex: 1 },
+    {
+      field: "fullName", headerName: "Full Name", flex: 1,
+      // 🔥 highlight apply
+      renderCell: (params) => (
+        <span>{highlightText(params.value)}</span>
+      ),
+    },
+    {
+      field: "email", headerName: "Email", flex: 1,
+      renderCell: (params) => (
+        <span>{highlightText(params.value)}</span>
+      ),
+    },
     { field: "department", headerName: "Department", width: 150 },
     { field: "status", headerName: "Status", width: 130 },
     {
@@ -134,7 +166,7 @@ export default function EmployeesPage() {
         </>
       ),
     }
-    
+
   ];
 
   // 🔹 delete confirmation dialog
