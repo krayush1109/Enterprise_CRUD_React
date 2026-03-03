@@ -16,24 +16,164 @@
         },
         {
             "id": "3",
-            "fullName": "Robert King 2",
+            "fullName": "Robert King",
             "email": "robert@example.com",
             "department": "Finance",
             "status": "Active"
         },
         {
-            "fullName": "Manu",
-            "email": "m@gmail.com",
+            "id": "4",
+            "fullName": "Manu Sharma",
+            "email": "manu@gmail.com",
             "department": "IT",
-            "status": "Inactive",
-            "id": "5"
+            "status": "Inactive"
         },
         {
-            "fullName": "John Doe",
-            "email": "j@gmail.com",
+            "id": "5",
+            "fullName": "Aditi Verma",
+            "email": "aditi.verma@example.com",
             "department": "HR",
-            "status": "Active",
-            "id": "5"
+            "status": "Active"
+        },
+        {
+            "id": "6",
+            "fullName": "Rahul Singh",
+            "email": "rahul.singh@example.com",
+            "department": "Finance",
+            "status": "Inactive"
+        },
+        {
+            "id": "7",
+            "fullName": "Neha Kapoor",
+            "email": "neha.kapoor@example.com",
+            "department": "IT",
+            "status": "Active"
+        },
+        {
+            "id": "8",
+            "fullName": "Vikram Patel",
+            "email": "vikram.patel@example.com",
+            "department": "HR",
+            "status": "Inactive"
+        },
+        {
+            "id": "9",
+            "fullName": "Priya Nair",
+            "email": "priya.nair@example.com",
+            "department": "Finance",
+            "status": "Active"
+        },
+        {
+            "id": "10",
+            "fullName": "Sahil Mehta",
+            "email": "sahil.mehta@example.com",
+            "department": "IT",
+            "status": "Inactive"
+        },
+        {
+            "id": "11",
+            "fullName": "Karan Malhotra",
+            "email": "karan.malhotra@example.com",
+            "department": "HR",
+            "status": "Active"
+        },
+        {
+            "id": "12",
+            "fullName": "Ananya Gupta",
+            "email": "ananya.gupta@example.com",
+            "department": "Finance",
+            "status": "Inactive"
+        },
+        {
+            "id": "13",
+            "fullName": "Arjun Rao",
+            "email": "arjun.rao@example.com",
+            "department": "IT",
+            "status": "Active"
+        },
+        {
+            "id": "14",
+            "fullName": "Meera Iyer",
+            "email": "meera.iyer@example.com",
+            "department": "HR",
+            "status": "Inactive"
+        },
+        {
+            "id": "15",
+            "fullName": "Rohit Jain",
+            "email": "rohit.jain@example.com",
+            "department": "Finance",
+            "status": "Active"
+        },
+        {
+            "id": "16",
+            "fullName": "Sneha Kulkarni",
+            "email": "sneha.kulkarni@example.com",
+            "department": "IT",
+            "status": "Inactive"
+        },
+        {
+            "id": "17",
+            "fullName": "Aman Choudhary",
+            "email": "aman.choudhary@example.com",
+            "department": "HR",
+            "status": "Active"
+        },
+        {
+            "id": "18",
+            "fullName": "Ishita Bose",
+            "email": "ishita.bose@example.com",
+            "department": "Finance",
+            "status": "Inactive"
+        },
+        {
+            "id": "19",
+            "fullName": "Riya Sen",
+            "email": "riya.sen@example.com",
+            "department": "IT",
+            "status": "Active"
+        },
+        {
+            "id": "20",
+            "fullName": "Devansh Agarwal",
+            "email": "devansh.agarwal@example.com",
+            "department": "HR",
+            "status": "Inactive"
+        },
+        {
+            "id": "21",
+            "fullName": "Pooja Mishra",
+            "email": "pooja.mishra@example.com",
+            "department": "Finance",
+            "status": "Active"
+        },
+        {
+            "id": "22",
+            "fullName": "Nitin Bansal",
+            "email": "nitin.bansal@example.com",
+            "department": "IT",
+            "status": "Inactive"
+        },
+        {
+            "id": "23",
+            "fullName": "Shreya Das",
+            "email": "shreya.das@example.com",
+            "department": "HR",
+            "status": "Active"
+        },
+        {
+            "id": "24",
+            "fullName": "Adarsh Kumar",
+            "email": "adarsh.kumar@example.com",
+            "department": "Finance",
+            "status": "Inactive"
+        },
+        {
+            "id": "25",
+            "fullName": "Tanya Roy",
+            "email": "tanya.roy@example.com",
+            "department": "IT",
+            "status": "Active"
         }
     ]
 }

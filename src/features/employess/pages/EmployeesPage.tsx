@@ -4,6 +4,7 @@ import {
   type GridPaginationModel,
   type GridSortModel,
 } from "@mui/x-data-grid";
+
 import {
   Box,
   TextField,
@@ -17,41 +18,82 @@ import {
   DialogContent,
   Snackbar,
   Alert,
+  IconButton,
+  DialogActions,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchEmployees, addEmployee } from "../api/employeeApi";
+
 import EmployeeForm from "../components/EmployeeForm";
 
-import { IconButton, DialogActions } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
-import { deleteEmployee } from "../api/employeeApi";
+import {
+  fetchEmployees,
+  addEmployee,
+  deleteEmployee,
+  updateEmployee,
+} from "../api/employeeApi";
 
+import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import { updateEmployee } from "../api/employeeApi";
 
 export default function EmployeesPage() {
-
-  // 🔹 search state
+  // -----------------------------
+  // ✅ Search + Debounce State
+  // -----------------------------
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // 🔹 pagination
+  // -----------------------------
+  // ✅ Filters State ("" means All)
+  // -----------------------------
+  const [departmentFilter, setDepartmentFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+
+  // -----------------------------
+  // ✅ Pagination State (server mode)
+  // -----------------------------
   const [paginationModel, setPaginationModel] =
     useState<GridPaginationModel>({ page: 0, pageSize: 5 });
 
-  // 🔹 sorting
+  // -----------------------------
+  // ✅ Sorting State (server mode)
+  // -----------------------------
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
-  // 🔹 dialog open state
+  // -----------------------------
+  // ✅ Dialog State
+  // -----------------------------
   const [openDialog, setOpenDialog] = useState(false);
 
-  // 🔹 snackbar state
+  // -----------------------------
+  // ✅ Snackbar State (dynamic message + severity)
+  // Color mapping:
+  // - Add success    => success (green)
+  // - Update success => info (blue)
+  // - Delete success => warning (orange)
+  // - Any error      => error (red)
+  // -----------------------------
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState("Success!");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<
+    "success" | "error" | "info" | "warning"
+  >("success");
 
-  const queryClient = useQueryClient(); // 🔥 React Query cache access
+  const showSnackbar = (
+    message: string,
+    severity: "success" | "error" | "info" | "warning"
+  ) => {
+    setSnackbarMsg(message);
+    setSnackbarSeverity(severity);
+    setOpenSnackbar(true);
+  };
 
-  // 🔹 debounce logic
+  const queryClient = useQueryClient();
+
+  // -----------------------------
+  // ✅ Debounce logic for Search
+  // -----------------------------
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchText);
@@ -60,10 +102,23 @@ export default function EmployeesPage() {
     return () => clearTimeout(timer);
   }, [searchText]);
 
+  // -----------------------------
+  // ✅ Best UX: when Search/Filters change,
+  // go back to first page (page=0)
+  // -----------------------------
+  useEffect(() => {
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  }, [debouncedSearch, departmentFilter, statusFilter]);
+
+  // -----------------------------
+  // ✅ Sorting field + order extracted (server sorting)
+  // -----------------------------
   const sortField = sortModel[0]?.field;
   const sortOrder = sortModel[0]?.sort;
 
-  // 🔥 Fetch employees
+  // -----------------------------
+  // ✅ Fetch employees with React Query
+  // -----------------------------
   const { data, isLoading } = useQuery({
     queryKey: [
       "employees",
@@ -72,6 +127,8 @@ export default function EmployeesPage() {
       sortField,
       sortOrder,
       debouncedSearch,
+      departmentFilter,
+      statusFilter,
     ],
     queryFn: () =>
       fetchEmployees({
@@ -80,6 +137,8 @@ export default function EmployeesPage() {
         sortField,
         sortOrder,
         search: debouncedSearch,
+        department: departmentFilter || undefined,
+        status: statusFilter || undefined,
       }),
     placeholderData: (prev) => prev,
   });
@@ -87,123 +146,179 @@ export default function EmployeesPage() {
   const rows = data?.data ?? [];
   const totalRows = data?.total ?? 0;
 
-  // 🔥 Mutation for adding employee
-  const mutation = useMutation({
+  // -----------------------------
+  // ✅ Add serial number (S.No.) for UI only
+  // -----------------------------
+  const rowsWithSrNo = useMemo(() => {
+    const start = paginationModel.page * paginationModel.pageSize;
+    return rows.map((row: any, index: number) => ({
+      ...row,
+      srNo: start + index + 1,
+    }));
+  }, [rows, paginationModel.page, paginationModel.pageSize]);
+
+  // -----------------------------
+  // ✅ Mutations (Add / Update / Delete)
+  // -----------------------------
+  const addMutation = useMutation({
     mutationFn: addEmployee,
-
-    // 🔹 success hone par
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
-      // 🔥 employees query refetch hogi
+      setOpenDialog(false);
 
-      setOpenDialog(false);   // dialog close
-      setOpenSnackbar(true);  // success message show
+      // ✅ Add success => Green
+      showSnackbar("Employee added successfully!", "success");
+    },
+    onError: () => {
+      showSnackbar("Failed to add employee!", "error");
     },
   });
-
-
-  // 🔥 Highlight function (safe approach)
-  const highlightText = (text: string) => {
-
-    // 🔹 agar search empty hai toh original text return
-    if (!debouncedSearch) return text;
-
-    // 🔹 case-insensitive regex create
-    const regex = new RegExp(`(${debouncedSearch})`, "gi");
-
-    // 🔹 matched parts ke basis pe split
-    const parts = text.split(regex);
-
-    return parts.map((part, index) =>
-      part.toLowerCase() === debouncedSearch.toLowerCase()
-        ? <mark key={index}>{part}</mark>  // 🔥 matched highlight
-        : part
-    );
-  };
-
-
-  const columns: GridColDef[] = [
-    { field: "id", headerName: "ID", width: 90 },
-    {
-      field: "fullName", headerName: "Full Name", flex: 1,
-      // 🔥 highlight apply
-      renderCell: (params) => (
-        <span>{highlightText(params.value)}</span>
-      ),
-    },
-    {
-      field: "email", headerName: "Email", flex: 1,
-      renderCell: (params) => (
-        <span>{highlightText(params.value)}</span>
-      ),
-    },
-    { field: "department", headerName: "Department", width: 150 },
-    { field: "status", headerName: "Status", width: 130 },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 150,
-      renderCell: (params) => (
-        <>
-          {/* 🔥 Edit Button */}
-          <IconButton
-            color="primary"
-            onClick={() => {
-              setEditEmployee(params.row); // 🔹 selected row data store
-              setOpenDialog(true);
-            }}
-          >
-            <EditIcon />
-          </IconButton>
-
-          {/* 🔥 Delete Button (already implemented) */}
-          <IconButton
-            color="error"
-            onClick={() => setDeleteId(params.row.id)}
-          >
-            <DeleteIcon />
-          </IconButton>
-        </>
-      ),
-    }
-
-  ];
-
-  // 🔹 delete confirmation dialog
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  // 🔥 Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: deleteEmployee,
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employees"] });
-      setDeleteId(null);       // dialog close
-      setOpenSnackbar(true);   // success message
-    },
-  });
-
-  // 🔹 edit employee state
-  const [editEmployee, setEditEmployee] = useState<any>(null);
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: any) =>
-      updateEmployee(id, data),
-
+    mutationFn: ({ id, data }: any) => updateEmployee(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       setOpenDialog(false);
       setEditEmployee(null);
-      setOpenSnackbar(true);
+
+      // ✅ Update success => Blue
+      showSnackbar("Employee updated successfully!", "info");
+    },
+    onError: () => {
+      showSnackbar("Failed to update employee!", "error");
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteEmployee,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setDeleteId(null);
+
+      // ✅ Delete success => Orange
+      showSnackbar("Employee deleted successfully!", "warning");
+    },
+    onError: () => {
+      showSnackbar("Failed to delete employee!", "error");
+    },
+  });
+
+  // -----------------------------
+  // ✅ Highlight search matches in cells
+  // -----------------------------
+  const highlightText = (text: string) => {
+    if (!debouncedSearch) return text;
+
+    const regex = new RegExp(`(${debouncedSearch})`, "gi");
+    const parts = text.split(regex);
+
+    return parts.map((part, index) =>
+      part.toLowerCase() === debouncedSearch.toLowerCase() ? (
+        <mark key={index}>{part}</mark>
+      ) : (
+        part
+      )
+    );
+  };
+
+  // -----------------------------
+  // ✅ Delete confirmation state
+  // -----------------------------
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // -----------------------------
+  // ✅ Edit employee state
+  // -----------------------------
+  const [editEmployee, setEditEmployee] = useState<any>(null);
+
+  // -----------------------------
+  // ✅ DataGrid Columns
+  // - UUID ID column removed
+  // - S.No. column added
+  // -----------------------------
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: "srNo",
+        headerName: "S.No.",
+        width: 90,
+        sortable: false, // UI-only
+        filterable: false,
+        align: "center",
+        headerAlign: "center",
+      },
+      {
+        field: "fullName",
+        headerName: "Full Name",
+        flex: 1,
+        renderCell: (params) => (
+          <span>{highlightText(String(params.value ?? ""))}</span>
+        ),
+      },
+      {
+        field: "email",
+        headerName: "Email",
+        flex: 1,
+        renderCell: (params) => (
+          <span>{highlightText(String(params.value ?? ""))}</span>
+        ),
+      },
+      { field: "department", headerName: "Department", width: 150 },
+      { field: "status", headerName: "Status", width: 130 },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 150,
+        sortable: false,
+        filterable: false,
+        renderCell: (params) => (
+          <>
+            <IconButton
+              color="primary"
+              onClick={() => {
+                setEditEmployee(params.row);
+                setOpenDialog(true);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+
+            <IconButton
+              color="error"
+              onClick={() => setDeleteId(params.row.id)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </>
+        ),
+      },
+    ],
+    [debouncedSearch]
+  );
+
+  // -----------------------------
+  // ✅ Clear filters/search
+  // -----------------------------
+  const handleClear = () => {
+    setSearchText("");
+    setDebouncedSearch("");
+    setDepartmentFilter("");
+    setStatusFilter("");
+  };
+
   return (
     <Box sx={{ height: 600, width: "100%" }}>
-
-      {/* 🔹 Top Section */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-
+      {/* ✅ Top Section */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          mb: 2,
+          gap: 2,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         <TextField
           label="Search"
           size="small"
@@ -211,19 +326,51 @@ export default function EmployeesPage() {
           onChange={(e) => setSearchText(e.target.value)}
         />
 
-        {/* 🔥 Add Employee Button */}
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Department</InputLabel>
+          <Select
+            label="Department"
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="IT">IT</MenuItem>
+            <MenuItem value="HR">HR</MenuItem>
+            <MenuItem value="Finance">Finance</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            label="Status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="Active">Active</MenuItem>
+            <MenuItem value="Inactive">Inactive</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Button variant="outlined" onClick={handleClear}>
+          Clear
+        </Button>
+
         <Button
           variant="contained"
-          onClick={() => setOpenDialog(true)}
+          onClick={() => {
+            setEditEmployee(null);
+            setOpenDialog(true);
+          }}
         >
           Add Employee
         </Button>
-
       </Box>
 
-      {/* 🔥 DataGrid */}
+      {/* ✅ DataGrid */}
       <DataGrid
-        rows={rows}
+        rows={rowsWithSrNo}
         columns={columns}
         loading={isLoading}
         paginationMode="server"
@@ -238,78 +385,67 @@ export default function EmployeesPage() {
         disableRowSelectionOnClick
       />
 
-      {/* 🔥 Dialog for Form */}
+      {/* ✅ Add/Edit Dialog */}
       <Dialog
         open={openDialog}
-        onClose={() => setOpenDialog(false)}
+        onClose={() => {
+          setOpenDialog(false);
+          setEditEmployee(null);
+        }}
         fullWidth
       >
-        <DialogTitle>
-          {editEmployee ? "Edit Employee" : "Add Employee"}
-        </DialogTitle>
-
+        <DialogTitle>{editEmployee ? "Edit Employee" : "Add Employee"}</DialogTitle>
         <DialogContent>
-
           <EmployeeForm
             defaultValues={editEmployee || undefined}
             onSubmit={(formData) => {
-
               if (editEmployee) {
-                // 🔥 Update flow
                 updateMutation.mutate({
                   id: editEmployee.id,
                   data: formData,
                 });
               } else {
-                // 🔥 Create flow
-                mutation.mutate(formData);
+                addMutation.mutate(formData);
               }
             }}
           />
-
         </DialogContent>
       </Dialog>
 
-      {/* 🔥 Delete Confirmation Dialog */}
-      <Dialog
-        open={!!deleteId}
-        onClose={() => setDeleteId(null)}
-      >
+      {/* ✅ Delete Confirmation Dialog */}
+      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           Are you sure you want to delete this employee?
         </DialogContent>
+
         <DialogActions>
-
-          <Button onClick={() => setDeleteId(null)}>
-            Cancel
-          </Button>
-
+          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
           <Button
             color="error"
             onClick={() => {
-              if (deleteId) {
-                deleteMutation.mutate(deleteId); // 🔥 delete trigger
-              }
+              if (deleteId) deleteMutation.mutate(deleteId);
             }}
           >
             Delete
           </Button>
-
         </DialogActions>
       </Dialog>
 
-      {/* 🔥 Success Snackbar */}
+      {/* ✅ Snackbar (now severity changes colors) */}
       <Snackbar
         open={openSnackbar}
         autoHideDuration={3000}
         onClose={() => setOpenSnackbar(false)}
       >
-        <Alert severity="success">
-          Employee added successfully!
+        <Alert
+          severity={snackbarSeverity}
+          onClose={() => setOpenSnackbar(false)}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMsg}
         </Alert>
       </Snackbar>
-
     </Box>
   );
 }

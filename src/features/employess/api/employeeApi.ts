@@ -20,6 +20,8 @@ export const fetchEmployees = async ({
   sortField,
   sortOrder,
   search,
+  department, // ✅ NEW
+  status,     // ✅ NEW
 }: any) => {
 
   const params: any = {
@@ -38,6 +40,14 @@ export const fetchEmployees = async ({
     params.q = search;
     // 🔹 JSON server me q generic search karta hai
   }
+
+  // ✅ Filters (json-server supports exact match filtering)
+  if (department) {
+    params.department = department;
+  }
+
+  if (status) params.status = status;
+
 
   const response = await api.get("/employees", { params });
 
